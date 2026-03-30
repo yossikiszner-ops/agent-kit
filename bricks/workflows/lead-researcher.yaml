@@ -1,0 +1,52 @@
+# bricks/workflows/lead-researcher.yaml
+#
+# Lead Researcher Workflow
+# Given a company or person name, runs comprehensive research
+# and produces a structured profile.
+#
+# Required bricks: web-search, web-scraper, deep-research
+# Required env:    TAVILY_API_KEY
+# Trigger:         manual — call via POST /api/workflow
+#
+# Example call:
+#   POST /api/workflow
+#   { "workflow": "lead-researcher", "context": { "target": "Anthropic AI" } }
+
+name: lead-researcher
+description: Research a company or person and produce a structured intelligence profile
+
+trigger:
+  type: manual
+
+steps:
+  - id: general-search
+    brick: web-search
+    input:
+      query: "{{context.target}} company overview funding team"
+      maxResults: 5
+      searchDepth: basic
+
+  - id: news-search
+    brick: web-search
+    input:
+      query: "{{context.target}} latest news 2026"
+      maxResults: 3
+      searchDepth: basic
+
+  - id: deep-dive
+    brick: deep-research
+    input:
+      topic: "{{context.target}} business model products customers"
+      depth: standard
+
+  - id: scrape-website
+    brick: web-scraper
+    condition: "steps['general-search'].results && steps['general-search'].results.length > 0"
+    input:
+      url: "{{steps.general-search.results.0.url}}"
+      maxLength: 3000
+    onError:
+      brick: text-utils
+      input:
+        action: count
+        text: "Website unavailable"

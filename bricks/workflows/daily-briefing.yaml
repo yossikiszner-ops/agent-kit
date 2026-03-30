@@ -1,0 +1,54 @@
+# bricks/workflows/daily-briefing.yaml
+#
+# Daily Briefing Workflow
+# Searches your topics, summarises the results, and emails you every morning.
+#
+# Required bricks: web-search, email-send
+# Trigger: cron at 7am (configure in vercel.json)
+#
+# To customise:
+#   - Change the topics in step 1's query
+#   - Change the recipient in step 3's to field
+#   - Adjust the schedule in vercel.json
+
+name: daily-briefing
+description: Morning digest — search topics, summarise, send by email
+
+trigger:
+  type: cron
+  schedule: "0 7 * * *" # 7:00 AM UTC every day
+
+steps:
+  - id: search-news
+    brick: web-search
+    input:
+      query: "AI and technology news today"
+      maxResults: 5
+      searchDepth: basic
+
+  - id: search-topic
+    brick: web-search
+    input:
+      query: "startup entrepreneurship India 2026"
+      maxResults: 3
+      searchDepth: basic
+
+  - id: compose-email
+    brick: email-send
+    input:
+      to: "{{env.OWNER_EMAIL}}"
+      subject: "Your Daily Briefing — {{steps.search-news.results.0.title}}"
+      body: |
+        Good morning!
+
+        Here's your daily briefing:
+
+        ## Top AI & Tech News
+        {{steps.search-news.answer}}
+
+        ## Startup & Business
+        {{steps.search-topic.answer}}
+
+        ---
+        Delivered by your AgentKit agent.
+      isHtml: false

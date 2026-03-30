@@ -1,0 +1,32 @@
+# bricks/workflows/deep-research.yaml
+#
+# Deep Research Workflow
+# Given a topic, runs comprehensive research and produces a structured report.
+#
+# Required bricks: deep-research, web-scraper (optional)
+# Trigger: manual (called via /api/workflow with { workflow: "deep-research", topic: "..." })
+
+name: deep-research
+description: Thorough multi-source research on any topic, producing a structured report
+
+trigger:
+  type: manual
+
+steps:
+  - id: research
+    brick: deep-research
+    input:
+      topic: "{{context.topic}}"
+      depth: standard
+
+  - id: scrape-top-source
+    brick: web-scraper
+    input:
+      url: "{{steps.research.results.0.url}}"
+      maxLength: 4000
+    condition: "steps.research.results && steps.research.results.length > 0"
+    onError:
+      brick: text-utils
+      input:
+        action: count
+        text: "fallback"

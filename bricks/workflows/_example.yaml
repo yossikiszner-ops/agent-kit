@@ -1,0 +1,48 @@
+# bricks/workflows/_example.yaml
+#
+# Custom Workflow Template
+# Copy this file, rename it (without the _ prefix), and customise.
+# Files starting with _ are ignored by the workflow loader.
+#
+# TEMPLATE VARIABLES:
+#   {{context.key}}     — passed in when the workflow is triggered
+#   {{steps.id.field}}  — output from a previous step
+#   {{env.VAR_NAME}}    — environment variable from .env.local
+#
+# TRIGGER TYPES:
+#   manual   — triggered via API call
+#   cron     — runs on a schedule (configure schedule in vercel.json too)
+#   webhook  — triggered by an incoming POST request
+
+name: my-workflow
+description: A short description of what this workflow does
+
+trigger:
+  type: manual
+  # For cron triggers:
+  # type: cron
+  # schedule: "0 9 * * 1-5"  # 9am, Monday-Friday
+
+steps:
+  # Step 1: Search for something
+  - id: search
+    brick: web-search
+    input:
+      query: "{{context.topic}} latest updates"
+      maxResults: 5
+
+  # Step 2: Only runs if search returned results
+  - id: process
+    brick: text-utils
+    condition: "steps.search.results && steps.search.results.length > 0"
+    input:
+      action: count
+      text: "{{steps.search.answer}}"
+
+  # Step 3: Send a notification with the results
+  # - id: notify
+  #   brick: email-send
+  #   input:
+  #     to: "{{env.OWNER_EMAIL}}"
+  #     subject: "Workflow complete: {{context.topic}}"
+  #     body: "Found {{steps.search.results.length}} results."

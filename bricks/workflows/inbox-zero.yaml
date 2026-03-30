@@ -1,0 +1,50 @@
+# bricks/workflows/inbox-zero.yaml
+#
+# Inbox Zero Workflow
+# Reads your unread Gmail, categorises emails by priority,
+# and sends a concise summary to Telegram.
+#
+# Required bricks: gmail-reader, telegram-send
+# Required env:    GOOGLE_ACCESS_TOKEN, TELEGRAM_BOT_TOKEN
+# Trigger:         cron — runs every weekday morning at 8am UTC
+
+name: inbox-zero
+description: Read unread Gmail, categorise by priority, send Telegram summary
+
+trigger:
+  type: cron
+  schedule: "0 8 * * 1-5"  # 8am UTC, Monday–Friday
+
+steps:
+  - id: fetch-unread
+    brick: gmail-reader
+    input:
+      action: search
+      query: "is:unread in:inbox"
+      maxResults: 20
+
+  - id: notify
+    brick: telegram-send
+    condition: "steps['fetch-unread'].count > 0"
+    input:
+      chatId: "{{env.TELEGRAM_CHAT_ID}}"
+      message: |
+        📬 *Inbox Summary*
+
+        You have {{steps.fetch-unread.count}} unread emails.
+
+        *Recent:*
+        {{steps.fetch-unread.messages.0.from}} — {{steps.fetch-unread.messages.0.subject}}
+        {{steps.fetch-unread.messages.1.from}} — {{steps.fetch-unread.messages.1.subject}}
+        {{steps.fetch-unread.messages.2.from}} — {{steps.fetch-unread.messages.2.subject}}
+
+        Open Gmail to review and reply.
+      parseMode: Markdown
+
+  - id: notify-empty
+    brick: telegram-send
+    condition: "steps['fetch-unread'].count === 0"
+    input:
+      chatId: "{{env.TELEGRAM_CHAT_ID}}"
+      message: "✅ Inbox zero! No unread emails."
+      parseMode: Markdown
