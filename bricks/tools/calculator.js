@@ -13,8 +13,9 @@ const brick = {
   name: "calculator",
   description:
     "Evaluate mathematical expressions and perform unit conversions. " +
+    "Supports arithmetic, percentages, exponents, trigonometric functions, logarithms, and more. " +
     "Use this for any arithmetic, percentage calculations, or unit conversions " +
-    "rather than computing mentally. Examples: '15% of 340', '(12 + 8) * 3', '5 miles to km'.",
+    "rather than computing mentally. Examples: 'sqrt(100)', 'sin(30)', '15% of 340', '(12 + 8) * 3', '5 miles to km'.",
 
   parameters: z.object({
     expression: z
@@ -25,7 +26,7 @@ const brick = {
   }),
 
   execute: async ({ expression }) => {
-    // Sanitise — only allow safe math characters
+    // Sanitise — only allow safe math characters and function names
     const safe = expression
       .toLowerCase()
       .replace(/[^0-9+\-*/().%\s^a-z]/g, "");
@@ -48,7 +49,41 @@ const brick = {
     // Evaluate the expression safely
     try {
       // Replace ^ with ** for exponents
-      const expr = safe.replace(/\^/g, "**");
+      let expr = safe.replace(/\^/g, "**");
+
+      // Replace common math functions with Math. equivalents
+      const mathFunctions = {
+        sqrt: 'Math.sqrt',
+        square: 'Math.sqrt',
+        'square-root': 'Math.sqrt',
+        'square root': 'Math.sqrt',
+        sin: 'Math.sin',
+        cos: 'Math.cos',
+        tan: 'Math.tan',
+        asin: 'Math.asin',
+        acos: 'Math.acos',
+        atan: 'Math.atan',
+        atan2: 'Math.atan2',
+        log: 'Math.log',
+        ln: 'Math.log',
+        log10: 'Math.log10',
+        log2: 'Math.log2',
+        exp: 'Math.exp',
+        pow: 'Math.pow',
+        abs: 'Math.abs',
+        ceil: 'Math.ceil',
+        floor: 'Math.floor',
+        round: 'Math.round',
+        max: 'Math.max',
+        min: 'Math.min',
+        pi: 'Math.PI',
+        e: 'Math.E',
+      };
+
+      for (const [key, value] of Object.entries(mathFunctions)) {
+        expr = expr.replace(new RegExp(`\\b${key}\\b`, 'g'), value);
+      }
+
       // Use Function constructor to evaluate — safe because we sanitised above
       // eslint-disable-next-line no-new-func
       const result = new Function(`"use strict"; return (${expr})`)();

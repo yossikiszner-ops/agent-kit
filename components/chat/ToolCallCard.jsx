@@ -12,14 +12,14 @@ import { cn } from "@/lib/utils.js";
  * @param {{ tool: Object }} props
  */
 export function ToolCallCard({ tool }) {
-  const [expanded, setExpanded] = useState(false);
-
   // Normalise between v6 part shapes
   const invocation = tool.toolInvocation ?? tool;
   const name = invocation.toolName ?? invocation.name ?? "tool";
   const args = invocation.args ?? invocation.input ?? {};
   const result = invocation.result;
   const state = invocation.state ?? (result !== undefined ? "result" : "call");
+
+  const [expanded, setExpanded] = useState(false);
 
   const isPending = state === "call" || state === "partial-call";
   const isError =

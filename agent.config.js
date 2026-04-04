@@ -16,14 +16,14 @@ const config = {
     // "openai"    → GPT-4o. Get key: https://platform.openai.com
     // "anthropic" → Claude. Get key: https://console.anthropic.com
     // "groq"      → FREE fast Llama. Get key: https://console.groq.com
-    provider: "groq",
+    provider: "gemini",
 
     // Model name. Must match your chosen provider:
     //   gemini:    "gemini-2.0-flash"
     //   openai:    "gpt-4o-mini"
     //   anthropic: "claude-3-5-haiku-20241022"
     //   groq:      "llama-3.3-70b-versatile"
-    model: "llama-3.3-70b-versatile",
+    model: "gemini-2.0-flash",
 
     // 0.0 = focused & precise  ←──────────────→  1.0 = creative & varied
     temperature: 0.7,

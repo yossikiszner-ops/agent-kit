@@ -30,6 +30,13 @@ const brick = {
         "IANA timezone name, e.g. 'Asia/Kolkata', 'America/New_York', 'Europe/London'. " +
           "Used by 'now' and 'convert'."
       ),
+    sourceTimezone: z
+      .string()
+      .optional()
+      .describe(
+        "Optional source timezone for 'convert' if the provided date is in a different timezone. " +
+          "Example: convert 9 pm in Asia/Kolkata to America/New_York."
+      ),
     date: z
       .string()
       .optional()
@@ -55,7 +62,7 @@ const brick = {
       .describe("BCP 47 locale for formatting, e.g. 'en-IN', 'en-US', 'de-DE'."),
   }),
 
-  execute: async ({ action, timezone, date, date2, amount, unit, locale }) => {
+  execute: async ({ action, timezone, sourceTimezone, date, date2, amount, unit, locale }) => {
     const tz = timezone ?? "UTC";
     const loc = locale ?? "en-US";
 
@@ -74,11 +81,12 @@ const brick = {
         if (!date) {
           return { error: "Provide 'date' to convert." };
         }
-        const d = parseDate(date);
+        const d = sourceTimezone ? parseDateInTimezone(date, sourceTimezone) : parseDate(date);
         return {
           original: date,
           converted: formatInTz(d, tz, loc),
           timezone: tz,
+          sourceTimezone: sourceTimezone ?? "UTC",
         };
       }
 
@@ -150,6 +158,71 @@ function parseDate(str) {
     throw new Error(`Cannot parse date: "${str}"`);
   }
   return d;
+}
+
+function parseDateInTimezone(str, timezone) {
+  const [datePart, timePart = "00:00:00"] = str.split("T");
+  if (!datePart || !timePart) {
+    return parseDate(str);
+  }
+
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute, second = "00"] = timePart.split(":").map(Number);
+  const targetWall = { year, month, day, hour, minute, second };
+
+  const start = Date.UTC(year, month - 1, day, hour, minute, second) - 86_400_000;
+  const end = start + 172_800_000;
+
+  let low = start;
+  let high = end;
+  while (low <= high) {
+    const mid = Math.floor(((low + high) / 2) / 60000) * 60000;
+    const wall = getWallTime(mid, timezone);
+    const compare = compareWallTime(wall, targetWall);
+    if (compare === 0) return new Date(mid);
+    if (compare < 0) low = mid + 60000;
+    else high = mid - 60000;
+  }
+
+  throw new Error(`Cannot parse date '${str}' in timezone '${timezone}'`);
+}
+
+function getWallTime(timestamp, timezone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(timestamp));
+
+  const values = {};
+  for (const part of parts) {
+    if (part.type !== "literal") {
+      values[part.type] = Number(part.value);
+    }
+  }
+
+  return {
+    year: values.year,
+    month: values.month,
+    day: values.day,
+    hour: values.hour,
+    minute: values.minute,
+    second: values.second,
+  };
+}
+
+function compareWallTime(a, b) {
+  if (a.year !== b.year) return a.year - b.year;
+  if (a.month !== b.month) return a.month - b.month;
+  if (a.day !== b.day) return a.day - b.day;
+  if (a.hour !== b.hour) return a.hour - b.hour;
+  if (a.minute !== b.minute) return a.minute - b.minute;
+  return a.second - b.second;
 }
 
 /** @param {Date} date @param {string} tz @param {string} loc @returns {string} */
