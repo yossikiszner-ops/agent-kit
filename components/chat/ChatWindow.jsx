@@ -5,23 +5,21 @@ import {MessageBubble} from "@/components/chat/MessageBubble.jsx";
 import {InputBar} from "@/components/chat/InputBar.jsx";
 import {SuggestedPrompts} from "@/components/chat/SuggestedPrompts.jsx";
 
-const STORE="agentkit-conversations-v1",ACTIVE="agentkit-active-conversation";
+const STORE="agentkit-conversations-v2",ACTIVE="agentkit-active-conversation-v2";
 const uid=()=>globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`;
 const fresh=()=>({id:uid(),title:"New chat",createdAt:Date.now(),updatedAt:Date.now(),messages:[]});
-const normalizeMessage=(m,i)=>{if(!m||typeof m!=="object")return null;const content=typeof m.content==="string"?m.content:(typeof m.text==="string"?m.text:"");return {...m,id:m.id||`legacy-${Date.now()}-${i}`,role:m.role==="assistant"?"assistant":"user",content,parts:Array.isArray(m.parts)?m.parts:(content?[{type:"text",text:content}]:[])} };
-const normalizeConvo=(c,i)=>{if(!c||typeof c!=="object")return null;const messages=Array.isArray(c.messages)?c.messages.map(normalizeMessage).filter(Boolean):[];return {id:c.id||`chat-${Date.now()}-${i}`,title:typeof c.title==="string"?c.title:"New chat",createdAt:Number(c.createdAt)||Date.now(),updatedAt:Number(c.updatedAt)||Date.now(),messages}};
-function load(){try{const raw=JSON.parse(localStorage.getItem(STORE)||"[]");return Array.isArray(raw)?raw.map(normalizeConvo).filter(Boolean):[]}catch{try{localStorage.removeItem(STORE)}catch{}return[]}}
+function load(){try{const raw=JSON.parse(localStorage.getItem(STORE)||"[]");return Array.isArray(raw)?raw:[]}catch{return[]}}
 function save(v){try{localStorage.setItem(STORE,JSON.stringify(v))}catch{}}
 function Glyph({state="idle",small=false}){return <span className={`living-glyph glyph-${state} ${small?"living-glyph-small":""}`}><i/><b/></span>}
 
 export function ChatWindow({agentName,welcomeMessage,suggestedPrompts,showToolCalls,showBranding,userId="anonymous"}){
  const[messages,setMessages]=useState([]),[input,setInput]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState(null),[convos,setConvos]=useState([]),[active,setActive]=useState(null),[drawer,setDrawer]=useState(false),[state,setState]=useState("idle"),[tool,setTool]=useState(null),[search,setSearch]=useState("");
  const bottom=useRef(null),abort=useRef(null),activeRef=useRef(null);
- useEffect(()=>{try{let list=load(),aid=localStorage.getItem(ACTIVE),c=list.find(x=>x.id===aid);if(!c){c=fresh();list=[c,...list];save(list)}setConvos(list);setActive(c.id);activeRef.current=c.id;setMessages(c.messages||[]);localStorage.setItem(ACTIVE,c.id)}catch{const c=fresh();setConvos([c]);setActive(c.id);activeRef.current=c.id;setMessages([])}},[]);
+ useEffect(()=>{try{let list=load(),aid=localStorage.getItem(ACTIVE),c=list.find(x=>x?.id===aid);if(!c){c=fresh();list=[c,...list];save(list)}setConvos(list);setActive(c.id);activeRef.current=c.id;setMessages(Array.isArray(c.messages)?c.messages:[]);localStorage.setItem(ACTIVE,c.id)}catch{const c=fresh();setConvos([c]);setActive(c.id);activeRef.current=c.id;setMessages([])}},[]);
  useEffect(()=>{activeRef.current=active},[active]); useEffect(()=>bottom.current?.scrollIntoView({behavior:"smooth"}),[messages,busy]);
  const persist=useCallback(next=>{setMessages(next);const aid=activeRef.current;if(!aid)return;setConvos(prev=>{const list=prev.map(c=>c.id===aid?{...c,messages:next,updatedAt:Date.now(),title:c.title==="New chat"&&next.find(m=>m.role==="user")?.content?next.find(m=>m.role==="user").content.slice(0,48):c.title}:c).sort((a,b)=>b.updatedAt-a.updatedAt);save(list);return list})},[]);
  const newChat=()=>{const c=fresh(),list=[c,...convos];save(list);setConvos(list);setActive(c.id);activeRef.current=c.id;setMessages([]);try{localStorage.setItem(ACTIVE,c.id)}catch{}setDrawer(false);setTool(null)};
- const choose=c=>{setActive(c.id);activeRef.current=c.id;setMessages(c.messages||[]);try{localStorage.setItem(ACTIVE,c.id)}catch{}setDrawer(false);setTool(null)};
+ const choose=c=>{setActive(c.id);activeRef.current=c.id;setMessages(Array.isArray(c.messages)?c.messages:[]);try{localStorage.setItem(ACTIVE,c.id)}catch{}setDrawer(false);setTool(null)};
  const del=(e,id)=>{e.stopPropagation();let list=convos.filter(c=>c.id!==id);if(!list.length)list=[fresh()];save(list);setConvos(list);if(id===activeRef.current)choose(list[0])};
  const clear=()=>{persist([]);setTool(null)};
  const stop=()=>{abort.current?.abort();setBusy(false);setState("idle")};
@@ -36,14 +34,14 @@ export function ChatWindow({agentName,welcomeMessage,suggestedPrompts,showToolCa
    <div className="living-brand"><div className="living-brand-left"><Glyph state={state}/><div><strong>AgentKit</strong><small><i/> Ready</small></div></div><button className="living-close" onClick={()=>setDrawer(false)}>×</button></div>
    <button className="living-new" onClick={newChat}><span>＋</span> New Chat <kbd>⌘K</kbd></button>
    <div className="living-search">⌕ <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search conversations..."/></div>
-   <div className="living-history">{filtered.map(c=><button key={c.id} onClick={()=>choose(c)} className={c.id===active?"active":""}><span className="dot"/><span>{c.title}</span><em onClick={e=>del(e,c.id)}>×</em></button>)}</div>
+   <div className="living-history">{filtered.map(c=><button key={c.id} onClick={()=>choose(c)} className={c.id===active?"active":""}><span className="dot"/><span>{String(c.title||"New chat")}</span><em onClick={e=>del(e,c.id)}>×</em></button>)}</div>
    <div className="living-bottom"><Link href="/settings">⌘ Tools & Extensions</Link><Link href="/settings">⚙ Settings</Link></div>
   </aside>
   <main className="living-main">
    <header className="living-head"><div className="living-head-left"><button className="living-menu" onClick={()=>setDrawer(true)}>☰</button><Glyph state={state}/><b>Agent</b><span className="living-online"><i/> {busy?state:"Online"}</span></div><div className="living-head-actions"><Link href="/settings" className="living-model">Model ▾</Link><button onClick={clear}>⌫ Clear</button></div></header>
    <section className="living-chat"><div className="living-chat-inner">
     {!messages.length&&<div className="living-welcome"><Glyph state={state}/><h1>{agentName}</h1><p>{welcomeMessage}</p>{suggestedPrompts?.length>0&&<SuggestedPrompts prompts={suggestedPrompts} onSelect={setInput}/>}</div>}
-    {messages.map((m,i)=><div key={m.id||i} className={m.role==="assistant"?"living-assistant":"living-user"}>{m.role==="assistant"&&<div className="living-identity"><Glyph state={busy?state:"idle"} small/><span>Agent</span></div>}<MessageBubble message={m} agentName={agentName} agentColor="#b4c5ff" agentInitials="AG" showToolCalls={showToolCalls}/></div>)}
+    {messages.map((m,i)=><div key={m?.id||i} className={m?.role==="assistant"?"living-assistant":"living-user"}>{m?.role==="assistant"&&<div className="living-identity"><Glyph state={busy?state:"idle"} small/><span>Agent</span></div>}<MessageBubble message={m||{role:"user",content:"",parts:[]}} agentName={agentName} agentColor="#b4c5ff" agentInitials="AG" showToolCalls={showToolCalls}/></div>)}
     {busy&&tool&&<div className="living-tool"><span>{tool.done?"✓":"◌"}</span><b>{tool.done?`${tool.name} complete`:`${tool.name}…`}</b></div>}
     {error&&<div className="living-error">{error}</div>}<div ref={bottom}/>
    </div></section>
