@@ -1,7 +1,7 @@
 /**
  * core/agent.js — central agent orchestrator
  */
-import { streamText } from "ai";
+import { streamText, stepCountIs } from "ai";
 import agentConfig from "@/agent.config.js";
 import { getModel, getModelOptions } from "@/core/model.js";
 import { getAITools } from "@/core/tool-runner.js";
@@ -30,9 +30,9 @@ export async function runAgent({ messages, userId = "anonymous", sessionId, runt
     system: systemPrompt,
     messages: modelMessages,
     tools: Object.keys(tools).length ? tools : undefined,
-    // AI SDK v6 continues automatically through tool-result -> final answer.
-    // A generous step limit lets research calls finish instead of stopping at the tool card.
-    maxSteps: 12,
+    // AI SDK v6 replaced maxSteps with stopWhen. Without this, the default is
+    // stepCountIs(1), so execution stops immediately after the first tool call.
+    stopWhen: stepCountIs(12),
     ...options,
     onStepFinish({ toolCalls, toolResults, finishReason }) {
       console.log("[agent] step", { finishReason, toolCalls: toolCalls?.map(x => x.toolName), toolResults: toolResults?.length || 0 });
